@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Color Extractor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/color-thief/2.3.0/color-thief.umd.js"></script>
+    <style>
+        /* Custom styles for animations and hidden scrollbars */
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        .toast-enter {
+            animation: slideUp 0.3s ease-out forwards;
+        }
+        .toast-exit {
+            animation: slideDown 0.3s ease-in forwards;
+        }
+        @keyframes slideUp {
+            from { transform: translateY(100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        @keyframes slideDown {
+            from { transform: translateY(0); opacity: 1; }
+            to { transform: translateY(100%); opacity: 0; }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen font-sans text-gray-800 selection:bg-blue-200 selection:text-blue-900">
+
+    <main class="max-w-4xl mx-auto px-4 py-12">
+        <header class="text-center mb-10">
+            <h1 class="text-4xl font-extrabold text-gray-900 mb-2 tracking-tight">Color Extractor</h1>
+            <p class="text-gray-500">Extract dominant colors and palettes instantly from any image.</p>
+        </header>
+
+        <section id="dropzone" class="relative border-2 border-dashed border-gray-300 rounded-2xl bg-white p-12 text-center cursor-pointer hover:bg-gray-50 transition-all duration-200 group flex flex-col items-center justify-center min-h-[250px]">
+            <input type="file" id="fileInput" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept="image/jpeg, image/png, image/webp, image/gif">
+            
+            <div class="pointer-events-none flex flex-col items-center">
+                <div class="w-16 h-16 mb-4 rounded-full bg-blue-50 text-blue-500 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                    </svg>
+                </div>
+                <p class="text-lg font-medium text-gray-700">Drag & Drop an image here</p>
+                <p class="text-sm text-gray-400 mt-1">or click to browse your files</p>
+            </div>
+        </section>
+
+        <section id="results" class="mt-10 hidden opacity-0 transition-opacity duration-500">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+                
+                <!-- Image Preview -->
+                <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center">
+                    <img id="imagePreview" src="" alt="Uploaded image preview" class="max-w-full h-auto rounded-lg max-h-[400px] object-contain">
+                </div>
+
+                <!-- Extracted Colors -->
+                <div class="flex flex-col gap-6 w-full">
+                    
+                    <!-- Dominant Color -->
+                    <div>
+                        <h2 class="text-lg font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M11.3 1.046A12.014 12.014 0 0010 1a11.996 11.996 0 00-8.296 3.03l-1.042.89A1 1 0 001 5.64v8.344a1 1 0 00.329.742l1.04.889A11.986 11.986 0 0010 19c1.696 0 3.31-.351 4.773-1.002a1 1 0 00.569-.915V5.215a1 1 0 00-.41-.813l-1.041-.689A11.992 11.992 0 0011.3 1.046zM10 17c-1.396 0-2.735-.29-3.953-.808l3.953-2.635V17zm2-5.464V17.5a10.024 10.024 0 002.5-1.503V9.757l-2.5 1.779zm-4 0l-2.5-1.78v6.24A10.024 10.024 0 008 17.5v-5.964z" clip-rule="evenodd" /></svg>
+                            Dominant Color
+                        </h2>
+                        <div id="dominantColorContainer" class="w-full h-32 rounded-2xl shadow-md border border-black/5 cursor-pointer flex items-end justify-center pb-4 transition-transform hover:scale-[1.02] active:scale-[0.98] group relative overflow-hidden" onclick="copyColor(this)">
+                            <div class="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                                <span class="bg-white/90 text-gray-900 px-3 py-1 rounded-full text-sm font-medium shadow-sm backdrop-blur-sm pointer-events-none">Click to copy</span>
+                            </div>
+                            <span class="color-hex font-mono text-lg font-bold tracking-wider z-10 drop-shadow-md pointer-events-none">#FFFFFF</span>
+                        </div>
+                    </div>
+
+                    <!-- Color Palette -->
+                    <div>
+                        <h2 class="text-lg font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4 2a2 2 0 00-2 2v11a3 3 0 106 0V4a2 2 0 00-2-2H4zm1 14a1 1 0 100-2 1 1 0 000 2zm5-1.757l4.9-4.9a2 2 0 000-2.828L13.485 5.1a2 2 0 00-2.828 0L10 10.586v3.657z" clip-rule="evenodd" /><path d="M11 14.414V18h3.586l4.293-4.293-3.586-3.586L11 14.414z" /></svg>
+                            Color Palette
+                        </h2>
+                        <div id="paletteContainer" class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                            <!-- Palette items will be injected here by JS -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-8 left-1/2 -translate-x-1/2 bg-gray-900 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 hidden z-50">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+        </svg>
+        <span id="toastMessage" class="font-medium text-sm">Copied to clipboard!</span>
+    </div>
+
+    <script>
+        // DOM Elements
+        const dropzone = document.getElementById('dropzone');
+        const fileInput = document.getElementById('fileInput');
+        const resultsSection = document.getElementById('results');
+        const imagePreview = document.getElementById('imagePreview');
+        const dominantColorContainer = document.getElementById('dominantColorContainer');
+        const paletteContainer = document.getElementById('paletteContainer');
+        const toast = document.getElementById('toast');
+        const toastMessage = document.getElementById('toastMessage');
+
+        // Initialize ColorThief
+        const colorThief = new ColorThief();
+
+        // Drag and drop visual feedback
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropzone.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropzone.addEventListener(eventName, highlight, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropzone.addEventListener(eventName, unhighlight, false);
+        });
+
+        function highlight(e) {
+            dropzone.classList.add('border-blue-500', 'bg-blue-50');
+            dropzone.classList.remove('border-gray-300', 'bg-white');
+        }
+
+        function unhighlight(e) {
+            dropzone.classList.remove('border-blue-500', 'bg-blue-50');
+            dropzone.classList.add('border-gray-300', 'bg-white');
+        }
+
+        // Handle file drop
+        dropzone.addEventListener('drop', handleDrop, false);
+        
+        // Handle file selection via click
+        fileInput.addEventListener('change', function() {
+            if (this.files && this.files[0]) {
+                processFile(this.files[0]);
+            }
+        });
+
+        function handleDrop(e) {
+            let dt = e.dataTransfer;
+            let files = dt.files;
+            
+            if (files && files.length > 0) {
+                // Ensure it's an image
+                if (files[0].type.startsWith('image/')) {
+                    fileInput.files = files; // Sync the input
+                    processFile(files[0]);
+                } else {
+                    showToast('Please drop a valid image file', true);
+                }
+            }
+        }
+
+        function processFile(file) {
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                // Hide results during loading
+                resultsSection.classList.add('hidden', 'opacity-0');
+                
+                imagePreview.src = e.target.result;
+                
+                // Once image is loaded in the DOM, extract colors
+                imagePreview.onload = function() {
+                    extractColors(imagePreview);
+                    
+                    // Show results smoothly
+                    resultsSection.classList.remove('hidden');
+                    // Small delay to allow display:block to apply before animating opacity
+                    setTimeout(() => {
+                        resultsSection.classList.remove('opacity-0');
+                    }, 50);
+                }
+            }
+            
+            reader.readAsDataURL(file);
+        }
+
+        function extractColors(imgEl) {
+            try {
+                // Get Dominant Color
+                const dominantRGB = colorThief.getColor(imgEl);
+                const dominantHex = rgbToHex(dominantRGB[0], dominantRGB[1], dominantRGB[2]);
+                
+                // Update Dominant Color UI
+                dominantColorContainer.style.backgroundColor = dominantHex;
+                dominantColorContainer.setAttribute('data-hex', dominantHex);
+                
+                const domHexSpan = dominantColorContainer.querySelector('.color-hex');
+                domHexSpan.textContent = dominantHex;
+                domHexSpan.style.color = getTextColor(dominantRGB[0], dominantRGB[1], dominantRGB[2]);
+
+                // Get Palette (requesting 6 colors)
+                const paletteRGBs = colorThief.getPalette(imgEl, 6);
+                
+                // Clear previous palette
+                paletteContainer.innerHTML = '';
+                
+                // Render new palette
+                paletteRGBs.forEach(rgb => {
+                    const hex = rgbToHex(rgb[0], rgb[1], rgb[2]);
+                    const textColor = getTextColor(rgb[0], rgb[1], rgb[2]);
+                    
+                    const swatch = document.createElement('div');
+                    swatch.className = 'w-full h-24 rounded-xl shadow-sm border border-black/5 cursor-pointer flex items-end justify-center pb-2 transition-transform hover:scale-[1.03] active:scale-[0.97] group relative overflow-hidden';
+                    swatch.style.backgroundColor = hex;
+                    swatch.setAttribute('data-hex', hex);
+                    swatch.onclick = function() { copyColor(this); };
+                    
+                    swatch.innerHTML = `
+                        <div class="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                            <span class="bg-white/90 text-gray-900 px-2 py-1 rounded-md text-xs font-medium shadow-sm backdrop-blur-sm pointer-events-none">Copy</span>
+                        </div>
+                        <span class="font-mono text-sm font-semibold tracking-wide drop-shadow-md pointer-events-none" style="color: ${textColor}">${hex}</span>
+                    `;
+                    
+                    paletteContainer.appendChild(swatch);
+                });
+                
+            } catch (err) {
+                console.error("Error extracting colors:", err);
+                showToast("Could not extract colors from this image", true);
+            }
+        }
+
+        // Helpers
+        function rgbToHex(r, g, b) {
+            return "#" + (1 << 24 | r << 16 | g << 8 | b).toString(16).slice(1).toUpperCase();
+        }
+
+        // Determine if text should be white or black based on background luminance
+        function getTextColor(r, g, b) {
+            const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+            return luminance > 0.5 ? '#1F2937' : '#FFFFFF'; // Gray-800 or White
+        }
+
+        function copyColor(element) {
+            const hex = element.getAttribute('data-hex');
+            if(!hex) return;
+
+            // Fallback for iFrames or environments without clipboard API
+            try {
+                // Try modern API first
+                if (navigator.clipboard && window.isSecureContext) {
+                    navigator.clipboard.writeText(hex).then(() => {
+                        showToast(`Copied ${hex}`);
+                    });
+                } else {
+                    // Fallback to execCommand
+                    const textArea = document.createElement("textarea");
+                    textArea.value = hex;
+                    // Make it invisible
+                    textArea.style.position = "fixed";
+                    textArea.style.left = "-999999px";
+                    textArea.style.top = "-999999px";
+                    document.body.appendChild(textArea);
+                    textArea.focus();
+                    textArea.select();
+                    
+                    document.execCommand('copy');
+                    textArea.remove();
+                    showToast(`Copied ${hex}`);
+                }
+            } catch (err) {
+                console.error('Failed to copy', err);
+            }
+        }
+
+        let toastTimeout;
+        function showToast(message, isError = false) {
+            // Reset state
+            clearTimeout(toastTimeout);
+            toast.classList.remove('hidden', 'toast-exit');
+            
+            // Set message and icon color
+            toastMessage.textContent = message;
+            const svg = toast.querySelector('svg');
+            if (isError) {
+                svg.classList.replace('text-green-400', 'text-red-400');
+                svg.innerHTML = '<path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />';
+            } else {
+                svg.classList.replace('text-red-400', 'text-green-400');
+                svg.innerHTML = '<path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />';
+            }
+
+            // Animate in
+            toast.classList.add('toast-enter');
+
+            // Animate out after 2 seconds
+            toastTimeout = setTimeout(() => {
+                toast.classList.remove('toast-enter');
+                toast.classList.add('toast-exit');
+                
+                // Hide completely after animation finishes
+                setTimeout(() => {
+                    if (toast.classList.contains('toast-exit')) {
+                        toast.classList.add('hidden');
+                        toast.classList.remove('toast-exit');
+                    }
+                }, 300); // Matches animation duration
+            }, 2500);
+        }
+    </script>
+</body>
+</html>
